@@ -82,10 +82,6 @@ struct ModelsSection: View {
     @ViewBuilder
     private var qwenSections: some View {
         Section {
-            Toggle(isOn: $server.keepsLoaded) {
-                Text(activeName)
-                Text(activeDetail)
-            }
             ForEach(library.usable) { model in
                 row(model)
             }
@@ -103,7 +99,7 @@ struct ModelsSection: View {
         } header: {
             Text("Qwen models")
         } footer: {
-            Text("Only the model in use takes memory; the others just take disk space.")
+            Text("⌥⌘G uses the checked model and loads it if it isn't in memory. The others only take disk space.")
         }
 
         Section {
@@ -171,13 +167,19 @@ struct ModelsSection: View {
                             .help("Has its own settings")
                     }
                 }
-                Text(caption(for: model)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(active ? "\(memoryStatus) · \(caption(for: model))" : caption(for: model))
+                    .font(.caption)
+                    .foregroundStyle(active && isFailed ? Color.orange : .secondary)
+                    .lineLimit(1)
+                    .help(active ? memoryStatus : "")
             }
             Spacer()
-            if active {
-                Text("In use").font(.caption).foregroundStyle(.secondary)
-            } else {
+            if !active {
                 Button("Use") { server.select(model: model.loadID) }.controlSize(.small)
+            } else if server.status == .stopped || isFailed {
+                Button("Load") { server.keepsLoaded = true }.controlSize(.small)
+            } else {
+                Button("Unload") { server.keepsLoaded = false }.controlSize(.small)
             }
             Menu {
                 Button("Test Proofreading") { library.test(model.loadID) }
@@ -198,7 +200,7 @@ struct ModelsSection: View {
     }
 
     private func caption(for model: ModelLibrary.Installed) -> String {
-        var parts = [ByteCountFormatter.string(fromByteCount: model.bytes, countStyle: .file)]
+        var parts = [ByteCountFormatter.string(fromByteCount: model.bytes, countStyle: .file) + " on disk"]
         if library.testing.contains(model.loadID) {
             parts.append("testing…")
         } else if let result = library.testResults[model.loadID] {
@@ -215,21 +217,23 @@ struct ModelsSection: View {
 
     // MARK: Active model
 
-    private var activeName: String {
-        library.name(for: server.modelID) ?? GrammarModel.named(server.modelID)
-    }
-
-    private var activeDetail: String {
+    /// Whether the checked model is in memory, and how much it takes.
+    private var memoryStatus: String {
         switch server.status {
         case .ready:
-            return "In memory · " + (server.memoryBytes.map { MainView.format($0) } ?? "measuring…")
+            return "In memory (" + (server.memoryBytes.map { MainView.format($0) } ?? "measuring…") + ")"
         case .loading:
-            return "Loading into memory…"
+            return "Loading…"
         case .stopped:
-            return "Unloaded · using no memory"
+            return "Not loaded"
         case .failed(let reason):
             return reason
         }
+    }
+
+    private var isFailed: Bool {
+        if case .failed = server.status { return true }
+        return false
     }
 
     private var isBusy: Bool {

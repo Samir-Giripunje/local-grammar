@@ -106,7 +106,11 @@ struct MenuContent: View {
             ForEach(ProofreadingEngine.allCases) { Text($0.title).tag($0) }
         }
         if server.engine == .qwen, server.qwenIsSetUp {
-            Toggle("Keep Model Loaded", isOn: $server.keepsLoaded)
+            if server.status == .ready || server.status == .loading {
+                Button("Unload Model") { server.keepsLoaded = false }
+            } else {
+                Button("Load Model") { server.keepsLoaded = true }
+            }
         }
         if server.engine == .qwen, !library.usable.isEmpty {
             Picker("Model", selection: Binding(get: { server.modelID }, set: { server.select(model: $0) })) {
