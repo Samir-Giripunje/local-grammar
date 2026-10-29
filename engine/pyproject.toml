@@ -1,0 +1,8 @@
+[project]
+name = "local-grammar-engine"
+version = "0.1.0"
+description = "Local Grammar's Qwen engine: an MLX model server for on-device proofreading"
+requires-python = ">=3.12"
+dependencies = [
+    "mlx-lm>=0.32.2",
+]
